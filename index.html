@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A/B Sample Size</title>
+<meta name="description" content="Interactive sample size calculator for two-proportion A/B tests.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f5f1;
+    --surface: #ffffff;
+    --surface-2: #f7f9f6;
+    --hero: #e5efe4;
+    --ink: #16241b;
+    --ink-2: #33443a;
+    --muted: #66756b;
+    --line: #e1e7df;
+    --line-2: #cfd9cc;
+    --accent: #2c5a3d;
+    --accent-2: #3f7a55;
+    --accent-soft: #dce9da;
+    --treat: #6a4c9c;
+    --warn: #9a5b12;
+    --warn-bg: #fbf1e2;
+    --shadow: 0 1px 2px rgba(22, 36, 27, .05), 0 4px 16px rgba(22, 36, 27, .04);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1511; --surface: #161e18; --surface-2: #1b241e; --hero: #1a2a1f;
+      --ink: #e7eee8; --ink-2: #c7d3ca; --muted: #8fa095; --line: #26322a; --line-2: #34443a;
+      --accent: #7fc495; --accent-2: #9ad3ab; --accent-soft: #23362a; --treat: #b9a1e6;
+      --warn: #f0b867; --warn-bg: #2d2416; --shadow: none; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1511; --surface: #161e18; --surface-2: #1b241e; --hero: #1a2a1f;
+    --ink: #e7eee8; --ink-2: #c7d3ca; --muted: #8fa095; --line: #26322a; --line-2: #34443a;
+    --accent: #7fc495; --accent-2: #9ad3ab; --accent-soft: #23362a; --treat: #b9a1e6;
+    --warn: #f0b867; --warn-bg: #2d2416; --shadow: none; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 Inter, system-ui, -apple-system, sans-serif;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+  }
+  button, input { font: inherit; color: inherit; }
+  .page { max-width: 1180px; margin: 0 auto; padding: 40px 24px 64px; }
+
+  header h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; letter-spacing: -.025em; margin: 0 0 12px; font-weight: 600; }
+  header p { margin: 0; color: var(--muted); font-size: 15px; max-width: 46ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .chip { font-size: 12px; padding: 5px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); }
+
+  .grid { display: grid; grid-template-columns: 340px 1fr; gap: 20px; margin-top: 28px; align-items: start; }
+  .col { display: grid; gap: 20px; min-width: 0; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 22px; min-width: 0; }
+  .card h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+
+  /* Controls */
+  .controls { position: sticky; top: 20px; }
+  .link-btn { background: none; border: 0; padding: 4px 6px; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+  .link-btn:hover { color: var(--ink); background: var(--surface-2); }
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 26px 0 0; font-weight: 600; }
+  .field { margin-top: 20px; }
+  .field-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .field-head label { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 8px; min-height: 1.5em; }
+  .num { display: flex; align-items: center; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px 0 4px; height: 34px; }
+  .num:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .num input { width: 64px; border: 0; background: transparent; text-align: right; font-weight: 600; outline: none; padding: 0 4px; -moz-appearance: textfield; }
+  .num input::-webkit-outer-spin-button, .num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .num span { color: var(--muted); font-size: 12px; }
+  .num.wide input { width: 92px; }
+
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; margin: 0; --p: 50%; }
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--accent) var(--p), var(--line-2) var(--p)); }
+  input[type=range]::-moz-range-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--accent) var(--p), var(--line-2) var(--p)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--accent); margin-top: -6px; transition: transform .1s; }
+  input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--accent); }
+  input[type=range]:active::-webkit-slider-thumb { transform: scale(1.15); }
+  input[type=range]:focus-visible { outline: none; }
+  input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--accent), 0 0 0 5px var(--accent-soft); }
+  .ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+
+  .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; gap: 2px; }
+  .seg button { border: 0; background: transparent; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 1px var(--line); }
+  .seg.small button { padding: 2px 8px; font-size: 11px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--ink-2); margin-top: 10px; cursor: pointer; }
+  .check input { accent-color: var(--accent); margin: 0; }
+  .note { margin-top: 22px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); display: flex; gap: 10px; }
+  .note svg { flex: none; margin-top: 2px; color: var(--muted); }
+
+  /* Hero */
+  .hero { background: var(--hero); border-color: transparent; padding: 26px 28px; }
+  .live { font-size: 11px; color: var(--accent); display: flex; align-items: center; gap: 6px; font-weight: 600; letter-spacing: .04em; }
+  .live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .hero-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-top: 14px; flex-wrap: wrap; }
+  .big { font-size: clamp(44px, 7vw, 68px); font-weight: 600; letter-spacing: -.035em; line-height: 1; color: var(--ink); }
+  .big-label { color: var(--ink-2); font-size: 13px; margin-top: 8px; }
+  .side-stats { display: flex; gap: 0; }
+  .side-stat { padding: 0 0 0 22px; margin-left: 22px; border-left: 1px solid var(--line-2); }
+  .side-stat:first-child { margin-left: 0; }
+  .side-stat b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+  .side-stat span { font-size: 12px; color: var(--muted); }
+  .arms { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line-2); text-align: center; }
+  .arm-label { font-size: 12px; color: var(--ink-2); display: flex; gap: 6px; justify-content: center; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .arm-val { font-size: 28px; font-weight: 600; letter-spacing: -.02em; margin-top: 4px; }
+  .arm-n { font-size: 12px; color: var(--muted); }
+  .arrow { font-size: 11px; color: var(--ink-2); display: grid; justify-items: center; gap: 2px; }
+  .arrow svg { color: var(--accent); }
+  .hero-foot { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 14px; }
+  .error { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); font-size: 13px; display: none; }
+
+  /* Duration */
+  .dur { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; }
+  .dur-num { font-size: 34px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+  .dur-num small { font-size: 14px; color: var(--muted); font-weight: 500; letter-spacing: 0; margin-left: 4px; }
+  .weeks { display: flex; gap: 3px; margin-top: 10px; flex-wrap: wrap; }
+  .weeks i { width: 12px; height: 12px; border-radius: 3px; background: var(--line-2); display: block; }
+  .weeks i.on { background: var(--accent); }
+  .weeks i.part { background: linear-gradient(to right, var(--accent) 50%, var(--line-2) 50%); }
+
+  /* Chart */
+  .chart-wrap { position: relative; margin-top: 14px; }
+  .chart-wrap svg { display: block; width: 100%; overflow: visible; user-select: none; }
+  .chart-wrap text { font-family: Inter, sans-serif; font-size: 11px; fill: var(--muted); }
+  .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px; padding: 6px 9px; border-radius: 7px; white-space: nowrap; transform: translate(-50%, calc(-100% - 12px)); opacity: 0; transition: opacity .1s; line-height: 1.35; }
+  .tip b { font-weight: 600; }
+  .tip small { opacity: .7; display: block; font-size: 11px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); align-items: center; }
+  .legend i { display: inline-block; width: 16px; height: 2px; background: var(--accent); vertical-align: middle; margin-right: 6px; }
+  .chart-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 12px; color: var(--muted); gap: 12px; flex-wrap: wrap; }
+  .insights { display: grid; gap: 8px; margin-top: 16px; }
+  .insight { display: flex; gap: 10px; align-items: flex-start; padding: 11px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
+  .insight svg { flex: none; margin-top: 2px; color: var(--accent); }
+
+  details { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+  summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--muted); font-size: 16px; line-height: 1; }
+  details[open] summary::after { content: "–"; }
+  .table-scroll { overflow-x: auto; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; color: var(--muted); font-size: 11.5px; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: var(--surface-2); }
+  td.cur { background: var(--accent-soft) !important; color: var(--accent); font-weight: 600; }
+
+  /* Readout */
+  .readout { margin-top: 20px; background: var(--hero); border: 0; display: flex; gap: 16px; align-items: flex-start; }
+  .readout .ico { flex: none; width: 34px; height: 34px; border-radius: 9px; background: var(--surface); display: grid; place-items: center; color: var(--accent); }
+  .readout p { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; max-width: 90ch; }
+  .readout p b { color: var(--ink); }
+  .readout-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .btn:hover { border-color: var(--accent-2); }
+  .method { margin-top: 28px; font-size: 12px; color: var(--muted); max-width: 90ch; }
+  .method code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11.5px; background: var(--surface); border: 1px solid var(--line); padding: 1px 5px; border-radius: 4px; }
+
+  .theme-toggle { position: absolute; top: 20px; right: 24px; }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    .controls { position: static; }
+  }
+  @media (max-width: 560px) {
+    .page { padding: 24px 16px 48px; }
+    .card { padding: 18px; }
+    .hero { padding: 20px; }
+    .side-stat { padding-left: 14px; margin-left: 14px; }
+    .arms { gap: 8px; }
+    .arm-val { font-size: 22px; }
+    .dur { grid-template-columns: 1fr; gap: 10px; }
+    .readout { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="page" style="position:relative">
+  <button class="link-btn theme-toggle" id="themeBtn" aria-label="Toggle dark mode">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    <span>Theme</span>
+  </button>
+
+  <header>
+    <h1>How many users do you need?</h1>
+    <p>Explore the trade-offs behind a well-powered A/B test. Move a slider, see what changes, plan with confidence.</p>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <div class="grid">
+    <!-- Controls -->
+    <aside class="card controls" aria-label="Experiment inputs">
+      <div class="card-head">
+        <h2>Design your experiment</h2>
+        <button class="link-btn" id="resetBtn">Reset
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </div>
+      <p class="sub">Start with your metric and the effect you want to detect.</p>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="n-base">Baseline conversion</label>
+          <div class="num"><input id="n-base" type="number" data-k="base" step="0.1" inputmode="decimal"><span>%</span></div>
+        </div>
+        <p class="hint">Your current conversion rate.</p>
+        <input type="range" data-k="base" aria-label="Baseline conversion">
+        <div class="ends" data-ends="base"></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="n-mde">Minimum detectable effect
+          </label>
+          <div class="num"><input id="n-mde" type="number" data-k="mde" inputmode="decimal"><span id="mdeUnit">%</span></div>
+        </div>
+        <div class="row" style="margin:6px 0 2px">
+          <p class="hint" id="mdeHint" style="margin:0"></p>
+          <div class="seg small" data-seg="mdeMode" role="group" aria-label="MDE type">
+            <button data-v="rel">Relative</button><button data-v="abs">Absolute</button>
+          </div>
+        </div>
+        <input type="range" data-k="mde" aria-label="Minimum detectable effect">
+        <div class="ends" data-ends="mde"></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="n-power">Statistical power</label>
+          <div class="num"><input id="n-power" type="number" data-k="power" step="1" inputmode="decimal"><span>%</span></div>
+        </div>
+        <p class="hint">Chance of detecting the effect if it's real.</p>
+        <input type="range" data-k="power" aria-label="Statistical power">
+        <div class="ends" data-ends="power"></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="n-alpha">Significance level α</label>
+          <div class="num"><input id="n-alpha" type="number" data-k="alpha" step="0.5" inputmode="decimal"><span>%</span></div>
+        </div>
+        <p class="hint">False-positive rate when there's no true difference.</p>
+        <input type="range" data-k="alpha" aria-label="Significance level">
+        <div class="ends" data-ends="alpha"></div>
+        <div class="row" style="margin-top:10px">
+          <span class="hint" style="margin:0">Hypothesis</span>
+          <div class="seg small" data-seg="sides" role="group" aria-label="Test sidedness">
+            <button data-v="2">Two-sided</button><button data-v="1">One-sided</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-label">Traffic &amp; layout</p>
+
+      <div class="field">
+        <div class="field-head">
+          <label>Treatment variants</label>
+          <div class="seg" data-seg="variants" role="group" aria-label="Number of treatment variants">
+            <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button>
+          </div>
+        </div>
+        <label class="check" id="bonfRow"><input type="checkbox" id="bonf"> Bonferroni-correct α for multiple comparisons</label>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="n-ctrl">Allocation</label>
+          <div class="num"><input id="n-ctrl" type="number" data-k="ctrl" step="5" inputmode="decimal"><span>% ctrl</span></div>
+        </div>
+        <p class="hint" id="ctrlHint"></p>
+        <input type="range" data-k="ctrl" aria-label="Control share of each comparison">
+        <div class="ends" data-ends="ctrl"></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="n-daily">Eligible users / day</label>
+          <div class="num wide"><input id="n-daily" type="number" data-k="daily" step="500" min="0" inputmode="numeric"></div>
+        </div>
+        <p class="hint">Used to estimate how long the test runs.</p>
+      </div>
+
+      <div class="note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <span id="noteText"></span>
+      </div>
+    </aside>
+
+    <div class="col">
+      <!-- Hero -->
+      <section class="card hero" aria-live="polite">
+        <div class="card-head">
+          <h2 style="font-size:13px;color:var(--ink-2);font-weight:500">Your estimated sample size</h2>
+          <span class="live">LIVE</span>
+        </div>
+        <div class="hero-main">
+          <div>
+            <div class="big" id="bigN">—</div>
+            <div class="big-label" id="bigLabel">users per variant</div>
+          </div>
+          <div class="side-stats" id="sideStats"></div>
+        </div>
+        <div class="arms">
+          <div>
+            <div class="arm-label"><span class="dot" style="background:var(--accent)"></span>Control · A</div>
+            <div class="arm-val" id="p1">—</div>
+            <div class="arm-n" id="n1"></div>
+          </div>
+          <div class="arrow">
+            <span id="liftRel"></span>
+            <svg width="90" height="10" viewBox="0 0 90 10"><path d="M0 5h86M80 1l6 4-6 4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span id="liftAbs" style="color:var(--muted)"></span>
+          </div>
+          <div>
+            <div class="arm-label"><span class="dot" style="background:var(--treat)"></span><span id="treatLabel">Treatment · B</span></div>
+            <div class="arm-val" id="p2" style="color:var(--treat)">—</div>
+            <div class="arm-n" id="n2"></div>
+          </div>
+        </div>
+        <div class="hero-foot">Rounded up to whole users in each arm.</div>
+        <div class="error" id="err"></div>
+      </section>
+
+      <!-- Duration -->
+      <section class="card">
+        <div class="dur">
+          <div>
+            <div class="sub" style="margin:0 0 6px">Estimated duration</div>
+            <div class="dur-num" id="durNum">—</div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--ink-2)" id="durText"></div>
+            <div class="weeks" id="weeks" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chart -->
+      <section class="card">
+        <div class="card-head" style="align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <div class="seg" data-seg="chart" role="group" aria-label="Chart">
+              <button data-v="mde">Effect size</button><button data-v="power">Power curve</button>
+            </div>
+            <p class="sub" id="chartSub" style="margin-top:10px"></p>
+          </div>
+          <div class="seg small" data-seg="scale" id="scaleSeg" role="group" aria-label="Y-axis scale">
+            <button data-v="log">Log</button><button data-v="linear">Linear</button>
+          </div>
+        </div>
+        <div class="chart-meta">
+          <span id="yLabel"></span>
+          <span class="legend" id="legend"></span>
+        </div>
+        <div class="chart-wrap" id="chartWrap">
+          <svg id="chart" height="300" role="img" aria-label="Sample size chart"></svg>
+          <div class="tip" id="tip"></div>
+        </div>
+        <div class="insights" id="insights"></div>
+        <details id="tableDetails">
+          <summary>View sample sizes as a table</summary>
+          <div class="table-scroll"><table id="table"></table></div>
+          <p class="sub" style="font-size:12px">Users per arm (control). Click a row to use that MDE.</p>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <!-- Readout -->
+  <section class="card readout">
+    <div class="ico">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    </div>
+    <div>
+      <h2>Read the result</h2>
+      <p id="readout"></p>
+      <div class="readout-actions">
+        <button class="btn" id="copyText">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span>Copy summary</span></button>
+        <button class="btn" id="copyLink">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+          <span>Copy shareable link</span></button>
+      </div>
+    </div>
+  </section>
+
+  <p class="method">
+    Method: two-proportion z-test with unpooled variance under the alternative,
+    <code>n₁ = (z<sub>α</sub>·√(p̄q̄(1+1/k)) + z<sub>β</sub>·√(p₁q₁ + p₂q₂/k))² / (p₂−p₁)²</code>,
+    where <code>k</code> is the treatment-to-control ratio and <code>p̄</code> the weighted mean rate.
+    Assumes independent users, a fixed horizon (no peeking), and one primary metric.
+  </p>
+</div>
+
+<script>
+(() => {
+  // ---------- Stats ----------
+  function normInv(p) {
+    const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.3577518672690, -30.66479806614716, 2.506628277459239];
+    const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+    const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+    const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+    const lo = 0.02425;
+    let q, r;
+    if (p < lo) {
+      q = Math.sqrt(-2 * Math.log(p));
+      return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+    }
+    if (p <= 1 - lo) {
+      q = p - 0.5; r = q * q;
+      return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+    }
+    q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+  function normCdf(x) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989422804 * Math.exp(-x * x / 2);
+    const p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return x > 0 ? 1 - p : p;
+  }
+
+  // ---------- State ----------
+  const DEFAULTS = { base: 5, mdeMode: 'rel', mdeRel: 5, mdeAbs: 0.25, power: 80, alpha: 5, sides: 2, variants: 1, bonf: true, ctrl: 50, daily: 10000, scale: 'log', chart: 'mde' };
+  // [sliderMin, sliderMax, step, hardMin, hardMax]
+  const LIM = {
+    base:   [0.5, 30, 0.1, 0.01, 99],
+    mdeRel: [1, 30, 0.5, 0.1, 1000],
+    mdeAbs: [0.05, 5, 0.05, 0.001, 99],
+    power:  [70, 99, 1, 50, 99.9],
+    alpha:  [1, 10, 0.5, 0.01, 25],
+    ctrl:   [20, 80, 5, 5, 95],
+    daily:  [0, 0, 1, 0, 1e10],
+  };
+  let S = { ...DEFAULTS };
+  const realKey = k => k === 'mde' ? (S.mdeMode === 'rel' ? 'mdeRel' : 'mdeAbs') : k;
+
+  function loadHash() {
+    try {
+      const h = new URLSearchParams(location.hash.slice(1));
+      for (const [k, v] of h) {
+        if (!(k in DEFAULTS)) continue;
+        const def = DEFAULTS[k];
+        if (typeof def === 'number') { const n = parseFloat(v); if (isFinite(n)) S[k] = n; }
+        else if (typeof def === 'boolean') S[k] = v === '1';
+        else S[k] = v;
+      }
+    } catch (e) {}
+  }
+  function saveHash() {
+    const p = new URLSearchParams();
+    for (const k in DEFAULTS) if (S[k] !== DEFAULTS[k]) p.set(k, typeof S[k] === 'boolean' ? (S[k] ? '1' : '0') : S[k]);
+    const s = p.toString();
+    try { history.replaceState(null, '', s ? '#' + s : location.pathname + location.search); } catch (e) {}
+  }
+
+  // ---------- Core calculation ----------
+  function calc(o = {}) {
+    const s = { ...S, ...o };
+    const p1 = s.base / 100;
+    const p2 = s.mdeMode === 'rel' ? p1 * (1 + s.mdeRel / 100) : p1 + s.mdeAbs / 100;
+    const comparisons = s.variants > 1 && s.bonf ? s.variants : 1;
+    const alpha = s.alpha / 100 / comparisons;
+    const za = normInv(1 - alpha / s.sides);
+    const zb = normInv(s.power / 100);
+    const k = (100 - s.ctrl) / s.ctrl;
+    const pbar = (p1 + k * p2) / (1 + k);
+    const d = p2 - p1;
+    const valid = p1 > 0 && p1 < 1 && p2 > 0 && p2 < 1 && d !== 0;
+    if (!valid) return { valid, p1, p2, s };
+    const raw = Math.pow(za * Math.sqrt(pbar * (1 - pbar) * (1 + 1 / k)) + zb * Math.sqrt(p1 * (1 - p1) + p2 * (1 - p2) / k), 2) / (d * d);
+    const n1 = Math.ceil(raw - 1e-9);
+    const n2 = Math.ceil(raw * k - 1e-9);
+    const total = n1 + s.variants * n2;
+    return { valid, p1, p2, d, k, za, zb, pbar, alpha, n1, n2, total, s };
+  }
+  function powerAt(r, n1) {
+    if (n1 <= 0) return r.alpha / r.s.sides;
+    const n2 = n1 * r.k;
+    const se0 = Math.sqrt(r.pbar * (1 - r.pbar) * (1 / n1 + 1 / n2));
+    const se1 = Math.sqrt(r.p1 * (1 - r.p1) / n1 + r.p2 * (1 - r.p2) / n2);
+    return normCdf((Math.abs(r.d) - r.za * se0) / se1);
+  }
+
+  // ---------- Formatting ----------
+  const fmtInt = n => Math.round(n).toLocaleString('en-US');
+  const trim = (x, dp = 2) => String(+(+x).toFixed(dp));
+  const pct = (x, dp = 2) => trim(x * 100, dp) + '%';
+  function compact(n) {
+    if (n >= 1e9) return trim(n / 1e9, 1) + 'B';
+    if (n >= 1e6) return trim(n / 1e6, n >= 1e7 ? 0 : 1) + 'M';
+    if (n >= 1e3) return trim(n / 1e3, n >= 1e4 ? 0 : 1) + 'K';
+    return String(Math.round(n));
+  }
+  function compactTip(n) {
+    if (n >= 1e6) return trim(n / 1e6, 2) + 'M';
+    if (n >= 1e3) return trim(n / 1e3, 1) + 'K';
+    return String(Math.round(n));
+  }
+  const mdeLabel = (s = S) => s.mdeMode === 'rel' ? trim(s.mdeRel, 2) + '%' : trim(s.mdeAbs, 3) + ' pp';
+
+  // ---------- DOM ----------
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+
+  function setRange(el, key) {
+    const [mn, mx, st] = LIM[key];
+    el.min = mn; el.max = mx; el.step = st;
+    const v = Math.min(mx, Math.max(mn, S[key]));
+    el.value = v;
+    el.style.setProperty('--p', ((v - mn) / (mx - mn) * 100) + '%');
+  }
+  function syncInputs(skip) {
+    for (const el of $$('[data-k]')) {
+      if (el === skip) continue;
+      const key = realKey(el.dataset.k);
+      if (el.type === 'range') setRange(el, key);
+      else el.value = key === 'daily' ? S[key] : trim(S[key], 3);
+    }
+    for (const el of $$('[data-ends]')) {
+      const key = realKey(el.dataset.ends);
+      const u = key === 'mdeAbs' ? ' pp' : '%';
+      el.innerHTML = `<span>${trim(LIM[key][0], 2)}${u}</span><span>${trim(LIM[key][1], 2)}${u}</span>`;
+    }
+    for (const g of $$('[data-seg]')) {
+      for (const b of g.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.v) === String(S[g.dataset.seg]));
+    }
+    $('#bonf').checked = S.bonf;
+    $('#bonfRow').style.display = S.variants > 1 ? 'flex' : 'none';
+    $('#mdeUnit').textContent = S.mdeMode === 'rel' ? '%' : 'pp';
+    $('#n-mde').step = LIM[realKey('mde')][2];
+    $('#scaleSeg').style.visibility = S.chart === 'mde' ? 'visible' : 'hidden';
+  }
+
+  for (const el of $$('[data-k]')) {
+    el.addEventListener('input', () => {
+      const key = realKey(el.dataset.k);
+      const v = parseFloat(el.value);
+      const [, , , hmn, hmx] = LIM[key];
+      if (!isFinite(v) || v < hmn || v > hmx) return;
+      S[key] = v;
+      update(el);
+    });
+    if (el.type === 'number') el.addEventListener('change', () => syncInputs());
+  }
+  for (const g of $$('[data-seg]')) {
+    g.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const key = g.dataset.seg;
+      const v = typeof DEFAULTS[key] === 'number' ? +b.dataset.v : b.dataset.v;
+      if (key === 'mdeMode' && v !== S.mdeMode) {
+        // keep the same effect when switching units
+        if (v === 'abs') S.mdeAbs = +(S.base * S.mdeRel / 100).toFixed(4);
+        else S.mdeRel = +(S.mdeAbs / S.base * 100).toFixed(3);
+      }
+      S[key] = v;
+      update();
+    });
+  }
+  $('#bonf').addEventListener('change', e => { S.bonf = e.target.checked; update(); });
+  $('#resetBtn').addEventListener('click', () => { S = { ...DEFAULTS }; update(); });
+
+  // Theme
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('ss-theme'); if (t) root.dataset.theme = t; } catch (e) {}
+  $('#themeBtn').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('ss-theme', root.dataset.theme); } catch (e) {}
+  });
+
+  // ---------- Render ----------
+  let R;
+  function update(skip) {
+    syncInputs(skip);
+    R = calc();
+    renderText();
+    renderChart();
+    renderTable();
+    saveHash();
+  }
+
+  function renderText() {
+    const s = S, r = R;
+    const twoArm = s.variants === 1;
+    const equal = s.ctrl === 50;
+    const sided = s.sides === 2 ? 'Two-sided' : 'One-sided';
+    const alloc = twoArm ? `${trim(s.ctrl)} / ${trim(100 - s.ctrl)} allocation` : `${s.variants + 1} arms · ${equal ? 'equal' : trim(s.ctrl) + '% ctrl'} split`;
+    $('#chips').innerHTML = ['Two-proportion z-test', sided, alloc].map(c => `<span class="chip">${c}</span>`).join('') +
+      (s.variants > 1 && s.bonf ? `<span class="chip">Bonferroni α = ${trim(r.alpha * 100, 3)}%</span>` : '');
+
+    const relEff = s.mdeMode === 'rel' ? s.mdeRel : s.mdeAbs / s.base * 100;
+    const absEff = s.mdeMode === 'abs' ? s.mdeAbs : s.base * s.mdeRel / 100;
+    $('#mdeHint').textContent = `${s.mdeMode === 'rel' ? 'A ' + trim(relEff) + '% lift' : '+' + trim(absEff, 3) + ' pp'} takes ${pct(r.p1)} to ${pct(r.p2, 3)}.`;
+    const k = (100 - s.ctrl) / s.ctrl;
+    $('#ctrlHint').textContent = equal ? 'Equal split between control and each treatment.' :
+      `Control gets ${trim(s.ctrl)}% of each control-vs-treatment pair (1 : ${trim(k, 2)}).`;
+    $('#noteText').textContent = s.mdeMode === 'rel'
+      ? `MDE is relative, not percentage points. A ${trim(relEff)}% lift on ${trim(s.base)}% conversion means ${trim(s.base * (1 + relEff / 100), 3)}% conversion.`
+      : `MDE is in percentage points. +${trim(absEff, 3)} pp on ${trim(s.base)}% conversion is a ${trim(relEff)}% relative lift.`;
+
+    const err = $('#err');
+    if (!r.valid) {
+      err.style.display = 'block';
+      err.textContent = `The treatment rate would be ${pct(r.p2)} — conversion must stay between 0% and 100%. Lower the baseline or the MDE.`;
+      for (const id of ['bigN', 'p2']) $('#' + id).textContent = '—';
+      $('#readout').textContent = 'Adjust the inputs to get a valid design.';
+      $('#durNum').textContent = '—';
+      return;
+    }
+    err.style.display = 'none';
+
+    $('#bigN').textContent = fmtInt(r.n1);
+    $('#bigLabel').textContent = equal ? (twoArm ? 'users per variant' : 'users per arm') : 'users in control';
+    const stats = [];
+    if (!equal) stats.push([fmtInt(r.n2), twoArm ? 'users in treatment' : 'per treatment arm']);
+    stats.push([fmtInt(r.total), `total users · ${s.variants + 1} arms`]);
+    $('#sideStats').innerHTML = stats.map(([b, l]) => `<div class="side-stat"><b>${b}</b><span>${l}</span></div>`).join('');
+
+    $('#p1').textContent = pct(r.p1);
+    $('#p2').textContent = pct(r.p2, 3);
+    $('#n1').textContent = fmtInt(r.n1) + ' users';
+    $('#n2').textContent = fmtInt(r.n2) + ' users' + (twoArm ? '' : ' each');
+    $('#treatLabel').textContent = twoArm ? 'Treatment · B' : `Treatments · B–${String.fromCharCode(65 + s.variants)}`;
+    $('#liftRel').textContent = `+${trim(relEff)}% relative`;
+    $('#liftAbs').textContent = `+${trim(absEff, 3)} pp`;
+
+    // Duration
+    const days = s.daily > 0 ? Math.ceil(r.total / s.daily) : null;
+    if (days) {
+      const weeks = Math.ceil(days / 7);
+      $('#durNum').innerHTML = `${fmtInt(days)}<small>day${days === 1 ? '' : 's'}</small>`;
+      $('#durText').innerHTML = days < 7
+        ? `At ${fmtInt(s.daily)} users/day. Consider running a full <b>7 days</b> anyway to cover day-of-week effects.`
+        : `At ${fmtInt(s.daily)} users/day — round up to <b>${weeks} full week${weeks === 1 ? '' : 's'}</b> to cover weekly seasonality.`;
+      const shown = Math.min(weeks, 52);
+      $('#weeks').innerHTML = Array.from({ length: shown }, (_, i) => {
+        const rem = days - i * 7;
+        return `<i class="${rem >= 7 ? 'on' : 'part'}" title="Week ${i + 1}"></i>`;
+      }).join('') + (weeks > 52 ? `<span class="sub" style="margin:0 0 0 6px">+${weeks - 52} more weeks</span>` : '');
+    } else {
+      $('#durNum').textContent = '—';
+      $('#durText').textContent = 'Enter daily eligible traffic to estimate run time.';
+      $('#weeks').innerHTML = '';
+    }
+
+    // Insights
+    const ins = [];
+    const half = s.mdeMode === 'rel' ? calc({ mdeRel: s.mdeRel / 2 }) : calc({ mdeAbs: s.mdeAbs / 2 });
+    if (half.valid) ins.push(`Halve the MDE to <b>${s.mdeMode === 'rel' ? trim(s.mdeRel / 2) + '%' : trim(s.mdeAbs / 2, 3) + ' pp'}</b> and the sample grows to <b>${fmtInt(half.n1)}</b> per arm — <b>${trim(half.n1 / r.n1, 1)}×</b> as many users.`);
+    if (s.power < 90) {
+      const p90 = calc({ power: 90 });
+      ins.push(`Raising power to <b>90%</b> needs <b>${fmtInt(p90.n1)}</b> per arm (+${trim((p90.n1 / r.n1 - 1) * 100, 0)}%).`);
+    } else if (s.mdeMode === 'rel' ? s.mdeRel * 2 <= 1000 : true) {
+      const dbl = s.mdeMode === 'rel' ? calc({ mdeRel: s.mdeRel * 2 }) : calc({ mdeAbs: s.mdeAbs * 2 });
+      if (dbl.valid) ins.push(`Accepting a <b>2×</b> larger MDE cuts the sample to <b>${fmtInt(dbl.n1)}</b> per arm.`);
+    }
+    if (days && days > 42) ins.push(`This test runs over 6 weeks. Consider a larger MDE, a higher-traffic surface, or a variance-reduction technique like CUPED.`);
+    const bulb = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg>';
+    $('#insights').innerHTML = ins.map(t => `<div class="insight">${bulb}<span>${t}</span></div>`).join('');
+
+    // Readout
+    const sideTxt = s.sides === 2 ? 'two-sided' : 'one-sided';
+    const multi = s.variants > 1 ? ` across ${s.variants} treatment variants${s.bonf ? ` (Bonferroni-adjusted α of ${trim(r.alpha * 100, 3)}% per comparison)` : ''}` : '';
+    const plan = equal
+      ? `plan for <b>${fmtInt(r.n1)} users in each ${twoArm ? 'variant' : 'arm'}</b> (${fmtInt(r.total)} total)`
+      : `plan for <b>${fmtInt(r.n1)} users in control</b> and <b>${fmtInt(r.n2)} in ${twoArm ? 'treatment' : 'each treatment'}</b> (${fmtInt(r.total)} total)`;
+    const durTxt = days ? ` At ${fmtInt(s.daily)} eligible users per day, that's about <b>${fmtInt(days)} days</b>.` : '';
+    $('#readout').innerHTML = `To detect a <b>${trim(relEff)}% relative lift</b> from ${pct(r.p1)} to ${pct(r.p2, 3)} with approximately <b>${trim(s.power)}% power</b> at a ${sideTxt} <b>${trim(s.alpha)}% significance level</b>${multi}, ${plan}. The absolute increase is ${trim(absEff, 3)} percentage points.${durTxt}`;
+  }
+
+  // ---------- Table ----------
+  function renderTable() {
+    const t = $('#table');
+    if (!R.valid) { t.innerHTML = ''; return; }
+    const rel = S.mdeMode === 'rel';
+    const mdes = rel ? [1, 2, 3, 5, 7.5, 10, 15, 20, 25, 30] : [0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5];
+    const cur = rel ? S.mdeRel : S.mdeAbs;
+    if (!mdes.includes(cur)) { mdes.push(cur); mdes.sort((a, b) => a - b); }
+    const powers = [...new Set([70, 80, 90, 95, S.power])].sort((a, b) => a - b);
+    let h = `<thead><tr><th>MDE (${rel ? 'relative' : 'pp'})</th>${powers.map(p => `<th>${trim(p)}% power</th>`).join('')}</tr></thead><tbody>`;
+    for (const m of mdes) {
+      h += `<tr data-m="${m}"><td${m === cur ? ' class="cur"' : ''}>${trim(m, 3)}${rel ? '%' : ' pp'}</td>`;
+      for (const p of powers) {
+        const r = calc(rel ? { mdeRel: m, power: p } : { mdeAbs: m, power: p });
+        h += `<td${m === cur && p === S.power ? ' class="cur"' : ''}>${r.valid ? fmtInt(r.n1) : '—'}</td>`;
+      }
+      h += '</tr>';
+    }
+    t.innerHTML = h + '</tbody>';
+  }
+  $('#table').addEventListener('click', e => {
+    const tr = e.target.closest('tr[data-m]'); if (!tr) return;
+    S[realKey('mde')] = +tr.dataset.m; update();
+  });
+
+  // ---------- Chart ----------
+  const svg = $('#chart'), tip = $('#tip'), wrap = $('#chartWrap');
+  const H = 300, M = { l: 52, r: 14, t: 14, b: 40 };
+  let hover = null; // geometry for hover handlers
+
+  function niceTicks(max, count = 5) {
+    const raw = max / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+    const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(v);
+    return out;
+  }
+
+  function renderChart() {
+    const W = wrap.clientWidth;
+    if (W < 120) return;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', W);
+    tip.style.opacity = 0;
+    if (!R.valid) { svg.innerHTML = ''; hover = null; return; }
+    S.chart === 'mde' ? drawMde(W) : drawPower(W);
+  }
+
+  function frame(W, xTicks, yTicks, xFmt, yFmt, X, Y, xTitle) {
+    let g = '';
+    for (const v of yTicks) {
+      const y = Y(v);
+      g += `<line x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}" stroke="var(--line)" />`;
+      g += `<text x="${M.l - 10}" y="${y + 4}" text-anchor="end">${yFmt(v)}</text>`;
+    }
+    for (const v of xTicks) {
+      g += `<text x="${X(v)}" y="${H - M.b + 18}" text-anchor="middle">${xFmt(v)}</text>`;
+    }
+    g += `<line x1="${M.l}" x2="${W - M.r}" y1="${H - M.b}" y2="${H - M.b}" stroke="var(--line-2)" />`;
+    g += `<text x="${(M.l + W - M.r) / 2}" y="${H - 4}" text-anchor="middle" style="fill:var(--ink-2)">${xTitle}</text>`;
+    return g;
+  }
+
+  function pill(x, y, text, W) {
+    const w = text.length * 6.6 + 18;
+    const px = Math.min(Math.max(x - w / 2, M.l), W - M.r - w);
+    const py = Math.max(y - 34, M.t - 4);
+    return `<g><rect x="${px}" y="${py}" width="${w}" height="22" rx="5" fill="var(--accent)"/>
+      <text x="${px + w / 2}" y="${py + 15}" text-anchor="middle" style="fill:var(--surface);font-weight:600">${text}</text></g>`;
+  }
+
+  function drawMde(W) {
+    const rel = S.mdeMode === 'rel';
+    const key = rel ? 'mdeRel' : 'mdeAbs';
+    const [x0, x1] = [LIM[key][0], LIM[key][1]];
+    const cur = Math.min(x1, Math.max(x0, S[key]));
+    const N = 160, pts = [];
+    for (let i = 0; i <= N; i++) {
+      const x = x0 + (x1 - x0) * i / N;
+      const r = calc({ [key]: x });
+      if (r.valid) pts.push([x, r.n1]);
+    }
+    if (!pts.length) { svg.innerHTML = ''; return; }
+    const log = S.scale === 'log';
+    const ys = pts.map(p => p[1]);
+    let yMin, yMax, Y, yTicks, yFmt = compact;
+    if (log) {
+      yMin = Math.pow(10, Math.floor(Math.log10(Math.min(...ys))));
+      yMax = Math.pow(10, Math.ceil(Math.log10(Math.max(...ys, R.n1))));
+      if (yMax / yMin < 100) yMin = yMax / 100;
+      const lmin = Math.log10(yMin), lmax = Math.log10(yMax);
+      Y = v => H - M.b - (Math.log10(Math.max(v, yMin)) - lmin) / (lmax - lmin) * (H - M.b - M.t);
+      yTicks = []; for (let e = lmin; e <= lmax + 1e-9; e++) yTicks.push(Math.pow(10, e));
+    } else {
+      // Linear: cap the domain so the knee is visible
+      yTicks = niceTicks(Math.max(...ys));
+      yMax = yTicks[yTicks.length - 1];
+      Y = v => H - M.b - Math.min(v, yMax) / yMax * (H - M.b - M.t);
+    }
+    const X = v => M.l + (v - x0) / (x1 - x0) * (W - M.l - M.r);
+    const xTicks = rel ? [1, 5, 10, 15, 20, 25, 30] : [0.05, 1, 2, 3, 4, 5];
+    const xFmt = v => rel ? v + '%' : v + 'pp';
+
+    let g = `<defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".16"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>`;
+    g += frame(W, xTicks, yTicks, xFmt, yFmt, X, Y, rel ? 'Relative minimum detectable effect' : 'Absolute minimum detectable effect (pp)');
+    const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('');
+    g += `<path d="${line}L${X(pts[pts.length - 1][0])},${H - M.b}L${X(pts[0][0])},${H - M.b}Z" fill="url(#fill)"/>`;
+    g += `<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"/>`;
+    const cx = X(cur), cy = Y(calc({ [key]: cur }).n1);
+    g += `<line x1="${cx}" x2="${cx}" y1="${M.t}" y2="${H - M.b}" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".7"/>`;
+    g += `<circle cx="${cx}" cy="${cy}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2.5"/>`;
+    g += pill(cx, cy, `${xFmt(+trim(cur, 3))} → ${compactTip(R.n1)} users`, W);
+    g += `<g id="hov" style="display:none"><line id="hovLine" y1="${M.t}" y2="${H - M.b}" stroke="var(--accent)" opacity=".35"/><circle id="hovDot" r="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/></g>`;
+    g += `<rect x="${M.l}" y="${M.t}" width="${W - M.l - M.r}" height="${H - M.t - M.b}" fill="transparent" style="cursor:crosshair"/>`;
+    svg.innerHTML = g;
+
+    $('#chartSub').textContent = 'Smaller effects need much larger experiments. Click the chart to set the MDE.';
+    $('#yLabel').textContent = `Users per arm · ${log ? 'log' : 'linear'} scale`;
+    $('#legend').innerHTML = '<span><i></i>Required sample</span>';
+
+    hover = {
+      fromPx: px => {
+        const v = x0 + (px - M.l) / (W - M.l - M.r) * (x1 - x0);
+        const st = LIM[key][2];
+        return Math.min(x1, Math.max(x0, Math.round(v / st) * st));
+      },
+      show: v => {
+        const r = calc({ [key]: v });
+        if (!r.valid) return null;
+        return { x: X(v), y: Y(r.n1), html: `<b>${fmtInt(r.n1)}</b> per arm<small>MDE ${xFmt(+trim(v, 3))} · ${fmtInt(r.total)} total</small>` };
+      },
+      click: v => { S[key] = +trim(v, 4); update(); },
+    };
+  }
+
+  function drawPower(W) {
+    const xMax = R.n1 * 2.2;
+    const X = v => M.l + v / xMax * (W - M.l - M.r);
+    const Y = v => H - M.b - v * (H - M.b - M.t);
+    const xTicks = niceTicks(xMax, W < 500 ? 3 : 5).filter(v => v <= xMax);
+    let g = frame(W, xTicks, [0, .25, .5, .75, 1], compact, v => (v * 100) + '%', X, Y, 'Users per arm (control)');
+    const N = 160; let line = '';
+    for (let i = 0; i <= N; i++) {
+      const n = xMax * i / N;
+      line += `${i ? 'L' : 'M'}${X(n).toFixed(1)},${Y(powerAt(R, n)).toFixed(1)}`;
+    }
+    const ty = Y(S.power / 100);
+    g += `<line x1="${M.l}" x2="${W - M.r}" y1="${ty}" y2="${ty}" stroke="var(--treat)" stroke-dasharray="4 4" opacity=".8"/>`;
+    g += `<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.2"/>`;
+    const cx = X(R.n1);
+    g += `<line x1="${cx}" x2="${cx}" y1="${M.t}" y2="${H - M.b}" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".7"/>`;
+    g += `<circle cx="${cx}" cy="${ty}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2.5"/>`;
+    g += pill(cx, ty, `${compactTip(R.n1)} users → ${trim(S.power)}%`, W);
+    g += `<g id="hov" style="display:none"><line id="hovLine" y1="${M.t}" y2="${H - M.b}" stroke="var(--accent)" opacity=".35"/><circle id="hovDot" r="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/></g>`;
+    g += `<rect x="${M.l}" y="${M.t}" width="${W - M.l - M.r}" height="${H - M.t - M.b}" fill="transparent" style="cursor:crosshair"/>`;
+    svg.innerHTML = g;
+
+    $('#chartSub').textContent = `Probability of detecting a ${mdeLabel()} effect as the sample grows. Stopping early leaves you underpowered.`;
+    $('#yLabel').textContent = 'Statistical power';
+    $('#legend').innerHTML = `<span><i></i>Power</span><span><i style="background:none;border-top:2px dashed var(--treat);height:0"></i>Target ${trim(S.power)}%</span>`;
+
+    hover = {
+      fromPx: px => Math.max(0, (px - M.l) / (W - M.l - M.r) * xMax),
+      show: n => {
+        const p = powerAt(R, n);
+        return { x: X(n), y: Y(p), html: `<b>${trim(p * 100, 1)}%</b> power<small>${fmtInt(n)} per arm · ${fmtInt(n + S.variants * n * R.k)} total</small>` };
+      },
+      click: n => {
+        const p = Math.round(powerAt(R, n) * 100);
+        if (p >= LIM.power[3] && p <= LIM.power[4]) { S.power = p; update(); }
+      },
+    };
+  }
+
+  function pointer(e) {
+    const rect = svg.getBoundingClientRect();
+    return (e.clientX - rect.left) * (svg.viewBox.baseVal.width / rect.width);
+  }
+  svg.addEventListener('pointermove', e => {
+    if (!hover) return;
+    const px = pointer(e);
+    const h = hover.show(hover.fromPx(px));
+    const hov = svg.querySelector('#hov');
+    if (!h || !hov) return;
+    hov.style.display = '';
+    svg.querySelector('#hovLine').setAttribute('x1', h.x); svg.querySelector('#hovLine').setAttribute('x2', h.x);
+    svg.querySelector('#hovDot').setAttribute('cx', h.x); svg.querySelector('#hovDot').setAttribute('cy', h.y);
+    tip.innerHTML = h.html;
+    tip.style.left = Math.min(Math.max(h.x, 80), wrap.clientWidth - 80) + 'px';
+    tip.style.top = h.y + 'px';
+    tip.style.opacity = 1;
+  });
+  svg.addEventListener('pointerleave', () => {
+    tip.style.opacity = 0;
+    const hov = svg.querySelector('#hov'); if (hov) hov.style.display = 'none';
+  });
+  svg.addEventListener('click', e => { if (hover) hover.click(hover.fromPx(pointer(e))); });
+
+  new ResizeObserver(() => R && renderChart()).observe(wrap);
+
+  // ---------- Copy ----------
+  function flash(btn, msg) {
+    const span = btn.querySelector('span'), old = span.textContent;
+    span.textContent = msg; setTimeout(() => span.textContent = old, 1400);
+  }
+  async function copy(text, btn) {
+    try { await navigator.clipboard.writeText(text); flash(btn, 'Copied'); }
+    catch (e) { flash(btn, 'Copy failed'); }
+  }
+  $('#copyText').addEventListener('click', e => copy($('#readout').textContent, e.currentTarget));
+  $('#copyLink').addEventListener('click', e => copy(location.href, e.currentTarget));
+
+  loadHash();
+  update();
+})();
+</script>
+</body>
+</html>
