@@ -98,6 +98,14 @@
   .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .check { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--ink-2); margin-top: 10px; cursor: pointer; }
   .check input { accent-color: var(--accent); margin: 0; }
+  .split { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; margin-top: 14px; }
+  .split i { display: block; height: 100%; }
+  .split-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11.5px; color: var(--ink-2); }
+  .split-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .split-legend .dot { width: 6px; height: 6px; }
+  .rec { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); font-size: 12.5px; color: var(--ink-2); display: none; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .rec b { color: var(--ink); }
+  .rec .btn { padding: 4px 10px; font-size: 12px; }
   .note { margin-top: 22px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); display: flex; gap: 10px; }
   .note svg { flex: none; margin-top: 2px; color: var(--muted); }
 
@@ -284,8 +292,14 @@
           <div class="num"><input id="n-ctrl" type="number" data-k="ctrl" step="5" inputmode="decimal"><span>% ctrl</span></div>
         </div>
         <p class="hint" id="ctrlHint"></p>
-        <input type="range" data-k="ctrl" aria-label="Control share of each comparison">
+        <input type="range" data-k="ctrl" aria-label="Control share of each control-vs-treatment pair">
         <div class="ends" data-ends="ctrl"></div>
+        <div class="split" id="splitBar" aria-hidden="true"></div>
+        <div class="split-legend" id="splitLegend"></div>
+        <div class="rec" id="recRow">
+          <span id="recText"></span>
+          <button class="btn" id="recBtn">Use recommended</button>
+        </div>
       </div>
 
       <div class="field">
@@ -600,18 +614,49 @@
   function renderText() {
     const s = S, r = R;
     const twoArm = s.variants === 1;
-    const equal = s.ctrl === 50;
+    const equal = Math.abs(s.ctrl - 50) < 1e-9;
     const sided = s.sides === 2 ? 'Two-sided' : 'One-sided';
-    const alloc = twoArm ? `${trim(s.ctrl)} / ${trim(100 - s.ctrl)} allocation` : `${s.variants + 1} arms · ${equal ? 'equal' : trim(s.ctrl) + '% ctrl'} split`;
+    // Overall traffic shares: control vs. each treatment arm
+    const k = (100 - s.ctrl) / s.ctrl;
+    const ctrlShare = 1 / (1 + s.variants * k), treatShare = k / (1 + s.variants * k);
+    const sharePct = x => trim(x * 100, 1) + '%';
+    const lastArm = String.fromCharCode(65 + s.variants);
+    const alloc = twoArm ? `${trim(s.ctrl, 1)} / ${trim(100 - s.ctrl, 1)} allocation`
+      : `${s.variants + 1} arms · ${sharePct(ctrlShare)} control, ${sharePct(treatShare)} each`;
     $('#chips').innerHTML = ['Two-proportion z-test', sided, alloc].map(c => `<span class="chip">${c}</span>`).join('') +
       (s.variants > 1 && s.bonf ? `<span class="chip">Bonferroni α = ${trim(r.alpha * 100, 3)}%</span>` : '');
 
     const relEff = s.mdeMode === 'rel' ? s.mdeRel : s.mdeAbs / s.base * 100;
     const absEff = s.mdeMode === 'abs' ? s.mdeAbs : s.base * s.mdeRel / 100;
     $('#mdeHint').textContent = `${s.mdeMode === 'rel' ? 'A ' + trim(relEff) + '% lift' : '+' + trim(absEff, 3) + ' pp'} takes ${pct(r.p1)} to ${pct(r.p2, 3)}.`;
-    const k = (100 - s.ctrl) / s.ctrl;
-    $('#ctrlHint').textContent = equal ? 'Equal split between control and each treatment.' :
-      `Control gets ${trim(s.ctrl)}% of each control-vs-treatment pair (1 : ${trim(k, 2)}).`;
+    const ratio = k <= 1 ? `${trim(1 / k, 2)} : 1` : `1 : ${trim(k, 2)}`;
+    $('#ctrlHint').textContent = twoArm
+      ? (equal ? 'Equal split between control and treatment.' : `Control : treatment = ${ratio}.`)
+      : `Control's share of each control-vs-treatment pair. Control : each treatment = ${ratio}.`;
+    const treatColors = ['var(--treat)', 'color-mix(in srgb, var(--treat) 75%, var(--surface))', 'color-mix(in srgb, var(--treat) 55%, var(--surface))', 'color-mix(in srgb, var(--treat) 38%, var(--surface))'];
+    $('#splitBar').innerHTML = `<i style="flex:${ctrlShare};background:var(--accent)"></i>` +
+      Array.from({ length: s.variants }, (_, i) => `<i style="flex:${treatShare};background:${treatColors[i]}"></i>`).join('');
+    $('#splitLegend').innerHTML = `<span><i class="dot" style="background:var(--accent)"></i>Control ${sharePct(ctrlShare)}</span>` +
+      `<span><i class="dot" style="background:var(--treat)"></i>${twoArm ? 'Treatment ' + sharePct(treatShare) : `B–${lastArm} ${sharePct(treatShare)} each`}</span>` +
+      `<span style="color:var(--muted)">of all traffic</span>`;
+
+    // Square-root rule: control ≈ √V × each treatment minimises total sample for V comparisons vs. one control
+    const recRow = $('#recRow');
+    if (twoArm) recRow.style.display = 'none';
+    else {
+      recRow.style.display = 'flex';
+      const sq = Math.sqrt(s.variants), rec = +(100 * sq / (sq + 1)).toFixed(1);
+      const recRatio = `${trim(sq, 2)} : 1`;
+      const isRec = Math.abs(s.ctrl - rec) < 0.05;
+      const cur = calc(), best = calc({ ctrl: rec });
+      $('#recBtn').style.display = isRec ? 'none' : '';
+      if (isRec) $('#recText').innerHTML = `Using the recommended <b>${recRatio}</b> split (√${s.variants} × each treatment in control).`;
+      else if (cur.valid && best.valid && best.total < cur.total) {
+        const saved = cur.total - best.total;
+        $('#recText').innerHTML = `Recommended for ${s.variants} treatments: <b>${recRatio}</b> (${rec}% ctrl). Saves <b>${fmtInt(saved)}</b> users (${trim(saved / cur.total * 100, 0)}%).`;
+      } else $('#recText').innerHTML = `Recommended for ${s.variants} treatments: <b>${recRatio}</b> (${rec}% ctrl).`;
+      $('#recBtn').onclick = () => { S.ctrl = rec; update(); };
+    }
     $('#noteText').textContent = s.mdeMode === 'rel'
       ? `MDE is relative, not percentage points. A ${trim(relEff)}% lift on ${trim(s.base)}% conversion means ${trim(s.base * (1 + relEff / 100), 3)}% conversion.`
       : `MDE is in percentage points. +${trim(absEff, 3)} pp on ${trim(s.base)}% conversion is a ${trim(relEff)}% relative lift.`;
